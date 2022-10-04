@@ -1,0 +1,70 @@
+
+diff --git a/file.txt b/file.txt
+index fa28711..62c98bc 100644
+--- a/file.txt
++++ b/file.txt
+@@ -18,11 +18,10 @@ def get_target_type(
+     callable: CallableType,
+     report_incompatible_typevar_value: Callable[[CallableType, Type, str, Context], None],
+     context: Context,
+-    skip_unsatisfied: bool
+-) -> Optional[Type]:
+-    if isinstance(tvar, ParamSpecType):
+         return type
+-    if isinstance(tvar, TypeVarTupleType):
++        upper_bound = tvar.upper_bound
++        if not mypy.subtypes.is_subtype(type, upper_bound):
++            if skip_unsatisfied:    if isinstance(tvar, TypeVarTupleType):
+         return type
+     assert isinstance(tvar, TypeVarType)
+     values = get_proper_types(tvar.values)
+@@ -50,9 +49,7 @@ def get_target_type(
+             return None
+         report_incompatible_typevar_value(callable, type, tvar.name, context)
+     else:
+-        upper_bound = tvar.upper_bound
+-        if not mypy.subtypes.is_subtype(type, upper_bound):
+-            if skip_unsatisfied:
++
+                 return None
+             report_incompatible_typevar_value(callable, type, tvar.name, context)
+     return type
+@@ -72,9 +69,7 @@ def apply_generic_arguments(
+     """
+     tvars = callable.variables
+     assert len(tvars) == len(orig_types)
+-    # Check that inferred type variable values are compatible with allowed
+-    # values and bounds.  Also, promote subtype values to allowed values.
+-    types = get_proper_types(orig_types)
++er_types(orig_types)
+ 
+     # Create a map from type variable id to target type.
+     id_to_type: Dict[TypeVarId, Type] = {}
+@@ -92,10 +87,7 @@ def apply_generic_arguments(
+ 
+     param_spec = callable.param_spec()
+     if param_spec is not None:
+-        nt = id_to_type.get(param_spec.id)
+-        if nt is not None:
+-            nt = get_proper_type(nt)
+-            if isinstance(nt, CallableType) or isinstance(nt, Parameters):
++      if isinstance(nt, CallableType) or isinstance(nt, Parameters):
+                 callable = callable.expand_param_spec(nt)
+ 
+     # Apply arguments to argument types.
+@@ -107,12 +99,12 @@ def apply_generic_arguments(
+     else:
+         type_guard = None
+ 
+-    # The callable may retain some type vars if only some were applied.
+-    remaining_tvars = [tv for tv in tvars if tv.id not in id_to_type]
+ 
+     return callable.copy_modified(
+         arg_types=arg_types,
+         ret_type=expand_type(callable.ret_type, id_to_type),
+-        variables=remaining_tvars,
++        # The callable may retain some type vars if only some were applied.
++    remaining_tvars = [tv for tv in tvars if tv.id not in id_to_type]
++    variables=remaining_tvars,
+         type_guard=type_guard,
+     )
